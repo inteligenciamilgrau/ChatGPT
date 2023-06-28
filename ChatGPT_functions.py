@@ -1,73 +1,88 @@
 import openai
 import json
 
-# Example dummy function hard coded to return the same weather
-# In production, this could be your backend API or an external API
-def get_current_weather(location, unit="fahrenheit"):
-    """Get the current weather in a given location"""
-    weather_info = {
-        "location": location,
-        "temperature": "72",
-        "unit": unit,
-        "forecast": ["sunny", "windy"],
+f = open('chat_key.json')
+chave = json.load(f)
+openai.api_key = chave['api_key']
+
+modelo = "gpt-3.5-turbo-0613"
+#modelo = "gpt-4-0613"
+
+def mandar_um_recado(nome, recado):
+    print("Rodando a funcao")
+    enviar_recado = {
+        "nome": nome,
+        "recado": recado,
     }
-    return json.dumps(weather_info)
+    print("Verifiquei o tempo e esta sol")
+    return json.dumps(enviar_recado)
 
-# Step 1, send model the user query and what functions it has access to
-def run_conversation():
-    f = open('chat_key.json')
-    chave = json.load(f)
-    openai.api_key = chave['api_key']
-
+# Passo 1, manda o texto pro modelo e prepara a funcao caso ela seja chamada
+def run_conversation(mensagem):
+    print("Recebido:", mensagem)
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo-0613",
-        messages=[{"role": "user", "content": "What's the weather like in Boston?"}],
+        model=modelo,
+        messages=[{"role": "user", "content": mensagem}],
         functions=[
             {
-                "name": "get_current_weather",
-                "description": "Get the current weather in a given location",
+                "name": "mandar_um_recado",
+                "description": "Avisar uma pessoa sobre alguma informação",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "location": {
+                        "nome": {
                             "type": "string",
-                            "description": "The city and state, e.g. San Francisco, CA",
+                            "description": "nome da pessoa",
                         },
-                        "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+                        "recado": {"type": "string", "description": "informação que a pessoa precisa saber"}
                     },
-                    "required": ["location"],
+                    "required": ["nome", "recado"],
                 },
             }
         ],
         function_call="auto",
     )
 
-    message = response["choices"][0]["message"]
+    first_response = response["choices"][0]["message"]
+    print("Primeira resposta:", first_response['content'])
 
-    # Step 2, check if the model wants to call a function
-    if message.get("function_call"):
-        function_name = message["function_call"]["name"]
+    # Passo 2, verifica se o modelo quer chamar uma funcao
+    if first_response.get("function_call"):
+        function_name = first_response["function_call"]["name"]
+        function_args = json.loads(first_response["function_call"]["arguments"])
 
-        # Step 3, call the function
-        # Note: the JSON response from the model may not be valid JSON
-        function_response = get_current_weather(
-            location=message.get("location"),
-            unit=message.get("unit"),
-        )
+        print("")
+        print("Detectou uma função", function_name, function_args)
+        print("")
 
-        # Step 4, send model the info on the function call and function response
-        second_response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo-0613",
-            messages=[
-                {"role": "user", "content": "What is the weather like in boston?"},
-                message,
-                {
-                    "role": "function",
-                    "name": function_name,
-                    "content": function_response,
-                },
-            ],
-        )
-        return second_response
+        # Passo 3, chama a funcao
+        # Detalhe: a resposta em JSON do modelo pode não ser um JSON valido
+        if function_name == "mandar_um_recado":
+            function_response = mandar_um_recado(
+                nome=function_args.get("nome"),
+                recado=function_args.get("recado"),
+            )
 
-print(run_conversation())
+            # Passo 4 - opcional , manda pro modelo a resposta da chamada de funcao
+            second_response = openai.ChatCompletion.create(
+                model=modelo,
+                messages=[
+                    {"role": "user", "content": mensagem},
+                    first_response,
+                    {
+                        "role": "function",
+                        "name": function_name,
+                        "content": function_response,
+                    },
+                ],
+            )
+            print("Segunda Resposta:", second_response["choices"][0]["message"]['content'])
+        else:
+            print("Nao achei a funcao pedida")
+
+mensagem = "Diz pra Maria que ela ganhou na loteria e ela precisa verificar como está o tempo em Floripa!"
+print("Enviando mensagem sem chamada de funcao")
+run_conversation("Bom dia")
+print("")
+print("Enviando mensagem com chamada de funcao")
+run_conversation(mensagem)
