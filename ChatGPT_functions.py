@@ -20,7 +20,8 @@ def mandar_um_recado(nome, recado):
 # Passo 1, manda o texto pro modelo e prepara a funcao caso ela seja chamada
 def run_conversation(mensagem):
     print("Recebido:", mensagem)
-    response = openai.ChatCompletion.create(
+    #response = openai.ChatCompletion.create( # api antiga
+    response = openai.chat.completions.create( # api nova
         model=modelo,
         messages=[{"role": "user", "content": mensagem}],
         functions=[
@@ -43,7 +44,9 @@ def run_conversation(mensagem):
         function_call="auto",
     )
 
-    first_response = response["choices"][0]["message"]
+    #first_response = response["choices"][0]["message"] # api antiga
+    first_response = response.choices[0].message.content # api nova
+    
     print("Primeira resposta:", first_response['content'])
 
     # Passo 2, verifica se o modelo quer chamar uma funcao
@@ -64,7 +67,8 @@ def run_conversation(mensagem):
             )
 
             # Passo 4 - opcional , manda pro modelo a resposta da chamada de funcao
-            second_response = openai.ChatCompletion.create(
+            #second_response = openai.ChatCompletion.create( # api antiga
+            second_response = openai.chat.completions.create( # api nova
                 model=modelo,
                 messages=[
                     {"role": "user", "content": mensagem},
@@ -76,7 +80,8 @@ def run_conversation(mensagem):
                     },
                 ],
             )
-            print("Segunda Resposta:", second_response["choices"][0]["message"]['content'])
+            #print("Segunda Resposta:", second_response["choices"][0]["message"]['content']) # api antiga
+            print("Segunda Resposta:", second_response.choices[0].message.content) # api nova
         else:
             print("Nao achei a funcao pedida")
 
