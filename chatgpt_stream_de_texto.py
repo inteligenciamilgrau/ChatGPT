@@ -11,7 +11,8 @@ openai.api_key = "sua-api-openai"
 
 def generate_answer(messages):
     try:
-        response = openai.ChatCompletion.create(
+        #response = openai.ChatCompletion.create( # api antiga
+        response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": messages}],
             temperature=1.0,
